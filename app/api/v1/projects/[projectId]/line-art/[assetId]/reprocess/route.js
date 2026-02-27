@@ -3,8 +3,9 @@ import { reprocessLineArtAsset } from "@/app/api/v1/_runtime/line-art-store.js";
 export const runtime = "nodejs";
 
 export async function POST(request, { params }) {
-  const projectId = String(params?.projectId || "").trim();
-  const assetId = String(params?.assetId || "").trim();
+  const resolvedParams = await params;
+  const projectId = String(resolvedParams?.projectId || "").trim();
+  const assetId = String(resolvedParams?.assetId || "").trim();
   if (!projectId || !assetId) {
     return Response.json({ code: "invalid_path_params", message: "projectId and assetId are required." }, { status: 400 });
   }

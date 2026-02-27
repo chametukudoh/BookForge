@@ -3,7 +3,8 @@ import { bulkCreateLineArtAssets } from "@/app/api/v1/_runtime/line-art-store.js
 export const runtime = "nodejs";
 
 export async function POST(request, { params }) {
-  const projectId = String(params?.projectId || "").trim();
+  const resolvedParams = await params;
+  const projectId = String(resolvedParams?.projectId || "").trim();
   if (!projectId) {
     return Response.json({ code: "invalid_project_id", message: "projectId is required." }, { status: 400 });
   }

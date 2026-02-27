@@ -15,6 +15,7 @@ import { getDotToDotPathMetrics } from "../lib/dot-to-dot-core";
 import { extractImageTraceFromImageData } from "../lib/dot-to-dot-image";
 import {
   createLineArtAssetFromTrace,
+  evaluateLineArtTrace,
   normalizeLineArtLibrary
 } from "../lib/dot-to-dot-library";
 import { runKdpPreflight } from "../lib/kdp-preflight";
@@ -882,21 +883,98 @@ function BookForgeStudioContent() {
     ctx.drawImage(img, 0, 0, width, height);
     const imageData = ctx.getImageData(0, 0, width, height);
 
-    const extracted = extractImageTraceFromImageData(imageData, {
-      edgeQuantile: 0.84,
-      minComponentSize: 120,
-      minPointGapPx: 2.0,
-      minGuideGapPx: 4.8,
-      maxContourPoints: 2100,
-      maxGuidePoints: 540
-    });
-    return normalizeDotToDotImageTrace({
-      name: nameHint,
-      points: extracted.pointsNormalized,
-      guidePoints: extracted.guidePointsNormalized,
-      sourceImageUrl: imageUrl,
-      diagnostics: extracted.diagnostics
-    });
+    const traceProfiles = [
+      {
+        edgeQuantile: 0.86,
+        minComponentSize: 140,
+        minPointGapPx: 2.2,
+        minGuideGapPx: 5.2,
+        maxContourPoints: 2200,
+        maxGuidePoints: 560
+      },
+      {
+        edgeQuantile: 0.8,
+        minComponentSize: 100,
+        minPointGapPx: 1.9,
+        minGuideGapPx: 4.4,
+        maxContourPoints: 2500,
+        maxGuidePoints: 620
+      },
+      {
+        edgeQuantile: 0.74,
+        minComponentSize: 70,
+        minPointGapPx: 1.6,
+        minGuideGapPx: 3.8,
+        maxContourPoints: 2800,
+        maxGuidePoints: 700
+      }
+    ];
+
+    const scoreTrace = (trace) => {
+      const points = Array.isArray(trace?.points) ? trace.points : [];
+      if (points.length < 8) return { score: -1, coverage: 0, pathLength: 0, openRatio: 1 };
+      let minX = 1;
+      let maxX = 0;
+      let minY = 1;
+      let maxY = 0;
+      let pathLength = 0;
+      for (let i = 0; i < points.length; i += 1) {
+        const point = points[i];
+        if (point.x < minX) minX = point.x;
+        if (point.x > maxX) maxX = point.x;
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
+        if (i > 0) {
+          const prev = points[i - 1];
+          pathLength += Math.sqrt((point.x - prev.x) ** 2 + (point.y - prev.y) ** 2);
+        }
+      }
+      const coverage = Math.max(0, maxX - minX) * Math.max(0, maxY - minY);
+      const first = points[0];
+      const last = points[points.length - 1];
+      const diagonal = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2) || 1;
+      const openRatio = Math.sqrt((first.x - last.x) ** 2 + (first.y - last.y) ** 2) / diagonal;
+      const qa = evaluateLineArtTrace(trace, {
+        minPoints: 100,
+        minGuidePoints: 24,
+        minCoverage: 0.12,
+        maxJitterRatio: 0.56
+      });
+      let score = Number(qa.score || 0);
+      score += Math.min(40, coverage * 180);
+      score += Math.min(38, pathLength * 12);
+      score -= Math.max(0, openRatio - 0.28) * 80;
+      score += trace?.diagnostics?.traceMode === "radial_outer" ? 8 : 0;
+      score += trace?.diagnostics?.source === "ink" ? 4 : 0;
+      return { score, coverage, pathLength, openRatio, qa };
+    };
+
+    let bestTrace = null;
+    let bestScore = -1;
+
+    for (let i = 0; i < traceProfiles.length; i += 1) {
+      const extracted = extractImageTraceFromImageData(imageData, traceProfiles[i]);
+      const trace = normalizeDotToDotImageTrace({
+        name: nameHint,
+        points: extracted.pointsNormalized,
+        guidePoints: extracted.guidePointsNormalized,
+        sourceImageUrl: imageUrl,
+        diagnostics: extracted.diagnostics
+      });
+      if (!trace) continue;
+      const scored = scoreTrace(trace);
+      const acceptable =
+        scored.coverage >= 0.12 &&
+        scored.pathLength >= 1.35 &&
+        scored.openRatio <= 0.5 &&
+        trace.points.length >= 100;
+      if (acceptable && scored.score > bestScore) {
+        bestScore = scored.score;
+        bestTrace = trace;
+      }
+    }
+
+    return bestTrace;
   };
 
   const readFileAsDataUrl = (file) =>
@@ -1141,23 +1219,44 @@ function BookForgeStudioContent() {
 
     let generationConfig = normalized;
     let aiFallbackReason = "";
+    let aiProviderNote = "";
     if (normalized.sourceMode === "theme_ai") {
       try {
-        setDotToDotStatusMessage("ok", "Generating AI line art for dot-to-dot...");
+        const aiRequestCount = Math.min(normalized.pageCount, 3);
+        setDotToDotStatusMessage(
+          "ok",
+          `Generating ${aiRequestCount} AI line-art source image${aiRequestCount === 1 ? "" : "s"} for ${normalized.pageCount} page${normalized.pageCount === 1 ? "" : "s"}...`
+        );
         const aspectRatio = trim.heightIn >= trim.widthIn ? "3:4" : "4:3";
-        const aiResponse = await fetch("/api/ai/scene-pack", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bookTitle: normalized.bookTitle,
-            theme: normalized.theme,
-            nicheId: inference.profile.packId,
-            count: normalized.pageCount,
-            aspectRatio,
-            quality: "standard"
-          })
-        });
+        const controller = new AbortController();
+        const timeoutMs = 120000;
+        let timeoutId = null;
+        let aiResponse = null;
+        try {
+          timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          aiResponse = await fetch("/api/ai/scene-pack", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              bookTitle: normalized.bookTitle,
+              theme: normalized.theme,
+              nicheId: inference.profile.packId,
+              count: aiRequestCount,
+              aspectRatio,
+              quality: "standard"
+            })
+          });
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
         const aiPayload = await aiResponse.json();
+        aiProviderNote =
+          aiPayload?.provider && aiPayload?.modelName
+            ? ` Provider: ${aiPayload.provider}/${aiPayload.modelName}.`
+            : aiPayload?.provider
+              ? ` Provider: ${aiPayload.provider}.`
+              : "";
 
         if (aiResponse.ok && aiPayload?.ok && aiPayload.mode !== "plan_only") {
           const aiItems = Array.isArray(aiPayload.items) ? aiPayload.items : [];
@@ -1173,7 +1272,8 @@ function BookForgeStudioContent() {
               if (!trace) continue;
               createdAssets.push(
                 createLineArtAssetFromTrace(item.subject || `AI ${i + 1}`, trace, {
-                  tags: [inference.profile.packId, "ai-generated"]
+                  tags: [inference.profile.packId, "ai-generated"],
+                  sourceImageUrl: item.imageUrl
                 })
               );
             } catch {
@@ -1221,12 +1321,15 @@ function BookForgeStudioContent() {
               : "AI generation failed.");
         }
       } catch (error) {
+        const isAbort = typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError";
+        const normalizedError = isAbort ? new Error("AI generation timed out after 120s.") : error;
         if (!normalized.allowAiFallback) {
-          const message = error instanceof Error ? error.message : "AI generation failed.";
+          const message = normalizedError instanceof Error ? normalizedError.message : "AI generation failed.";
           setDotToDotStatusMessage("error", message);
           return;
         }
-        aiFallbackReason = error instanceof Error ? error.message : "AI generation failed.";
+        aiFallbackReason =
+          normalizedError instanceof Error ? normalizedError.message : "AI generation failed.";
       }
     }
 
@@ -1279,7 +1382,7 @@ function BookForgeStudioContent() {
           : "";
       setDotToDotStatusMessage(
         "ok",
-        `Generated ${pages.length} dot-to-dot pages from ${sourceLabel}. API generation queued.${fallbackNote}`
+        `Generated ${pages.length} dot-to-dot pages from ${sourceLabel}. API generation queued.${aiProviderNote}${fallbackNote}`
       );
     } else {
       setApiMode("local");
@@ -1290,7 +1393,7 @@ function BookForgeStudioContent() {
           : "";
       setDotToDotStatusMessage(
         "warn",
-        `Generated ${pages.length} dot-to-dot pages locally from ${sourceLabel}. API unavailable${apiReason}.${fallbackNote}`
+        `Generated ${pages.length} dot-to-dot pages locally from ${sourceLabel}. API unavailable${apiReason}.${aiProviderNote}${fallbackNote}`
       );
     }
   };

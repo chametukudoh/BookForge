@@ -29,9 +29,9 @@ const SCENE_SETTINGS = [
 ];
 const CAMERAS = ["front view", "storybook angle", "wide view", "close focus"];
 const PROMPT_STYLE_BLOCK =
-  "Printable coloring book line art, black ink outlines only, white background, simple bold contours, clean closed shapes, kid-friendly composition.";
+  "Printable coloring-book line art for dot-to-dot extraction: black ink outlines only, white background, single dominant subject, clean closed outer contour, minimal interior detail, thick smooth lines, kid-friendly composition.";
 const PROMPT_NEGATIVE_BLOCK =
-  "No grayscale, no color, no shading, no gradients, no shadows, no halftones, no textures, no photo style, no text, no watermark, no frame.";
+  "No grayscale, no color, no shading, no gradients, no shadows, no halftones, no textures, no photo style, no text, no watermark, no frame, no logo, no busy background, no tiny floating elements.";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -104,6 +104,11 @@ function parseKieAspectRatio(aspectRatio) {
   return "3:4";
 }
 
+function parseKieQuality(quality) {
+  if (quality === "high") return "high";
+  return "basic";
+}
+
 function buildPrompts({ bookTitle, theme, nicheId, count }) {
   const themeSeed = toThemeSeed(theme || bookTitle || "dot marker coloring");
   const subjectPool = NICHE_SUBJECTS[nicheId] || NICHE_SUBJECTS.generic;
@@ -119,8 +124,8 @@ function buildPrompts({ bookTitle, theme, nicheId, count }) {
       PROMPT_STYLE_BLOCK,
       `Theme: ${themeSeed}.`,
       `Main subject: ${scene}.`,
-      `Composition: ${camera}, single clear focal subject, balanced whitespace, avoid busy background.`,
-      `Line treatment: thick uniform contour lines and simplified interior details suitable for coloring.`,
+      `Composition: ${camera}, centered single focal subject, balanced whitespace, no extra objects.`,
+      `Line treatment: one clear outer silhouette contour, thick uniform contour lines, very sparse interior lines suitable for tracing.`,
       `Keep all important artwork inside safe margins near page center.`,
       PROMPT_NEGATIVE_BLOCK
     ].join(" ");
@@ -279,23 +284,124 @@ async function runReplicatePrompt({ token, model, prompt, aspectRatio }) {
   };
 }
 
-function extractKieImageUrl(responsePayload) {
+function firstUrlFromArray(values) {
+  if (!Array.isArray(values)) return null;
+  for (const item of values) {
+    if (typeof item === "string" && item) return item;
+    if (item && typeof item === "object") {
+      const nested =
+        (typeof item.url === "string" && item.url) ||
+        (typeof item.href === "string" && item.href) ||
+        (typeof item.src === "string" && item.src);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function parseResultJsonPayload(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (typeof parsed === "string") {
+        try {
+          return JSON.parse(parsed);
+        } catch {
+          return null;
+        }
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function extractKieImageUrl(responsePayload, depth = 0) {
   if (!responsePayload || typeof responsePayload !== "object") return null;
+  if (depth > 4) return null;
+
   if (typeof responsePayload.resultImageUrl === "string" && responsePayload.resultImageUrl) {
     return responsePayload.resultImageUrl;
   }
-  if (Array.isArray(responsePayload.result_urls)) {
-    const first = responsePayload.result_urls.find((item) => typeof item === "string" && item);
+  if (typeof responsePayload.imageUrl === "string" && responsePayload.imageUrl) {
+    return responsePayload.imageUrl;
+  }
+
+  const arrayCandidates = [
+    responsePayload.resultUrls,
+    responsePayload.result_urls,
+    responsePayload.images,
+    responsePayload.outputs,
+    responsePayload.result
+  ];
+  for (const candidate of arrayCandidates) {
+    const first = firstUrlFromArray(candidate);
     if (first) return first;
   }
-  if (Array.isArray(responsePayload.images)) {
-    const firstImage = responsePayload.images.find((item) => typeof item === "string" && item);
-    if (firstImage) return firstImage;
+
+  const parsedResultJson = parseResultJsonPayload(responsePayload.resultJson);
+  if (parsedResultJson) {
+    const fromResultJson = extractKieImageUrl(parsedResultJson, depth + 1);
+    if (fromResultJson) return fromResultJson;
   }
+
+  const nestedCandidates = [responsePayload.response, responsePayload.data, responsePayload.result];
+  for (const nested of nestedCandidates) {
+    if (nested && typeof nested === "object") {
+      const nestedUrl = extractKieImageUrl(nested, depth + 1);
+      if (nestedUrl) return nestedUrl;
+    }
+  }
+
   return extractImageUrl(responsePayload);
 }
 
-async function pollKieTask(baseUrl, token, taskId) {
+async function pollKieMarketTask(baseUrl, token, taskId) {
+  const cleanBase = String(baseUrl || "").replace(/\/+$/, "");
+  for (let attempt = 0; attempt < KIE_MAX_POLLS; attempt += 1) {
+    const statusUrl = `${cleanBase}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`;
+    const response = await fetch(statusUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      cache: "no-store"
+    });
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
+    if (!response.ok) {
+      const detail = data?.msg || data?.message || data?.error || raw || `KIE poll failed (${response.status})`;
+      throw new Error(detail);
+    }
+    const statusCode = Number(data?.code);
+    if (statusCode !== 0 && statusCode !== 200) {
+      throw new Error(data?.msg || data?.message || "KIE status check failed.");
+    }
+
+    const task = data?.data || {};
+    const state = String(task?.state || "").toLowerCase();
+    if (state === "success") {
+      return task;
+    }
+    if (state === "fail") {
+      const err = task?.failMsg || task?.errorMessage || "KIE generation failed.";
+      throw new Error(err);
+    }
+    await sleep(KIE_WAIT_MS);
+  }
+  throw new Error("KIE generation timed out");
+}
+
+async function pollKieFluxKontextTask(baseUrl, token, taskId) {
   const cleanBase = String(baseUrl || "").replace(/\/+$/, "");
   for (let attempt = 0; attempt < KIE_MAX_POLLS; attempt += 1) {
     const statusUrl = `${cleanBase}/api/v1/flux/kontext/record-info?taskId=${encodeURIComponent(taskId)}`;
@@ -339,9 +445,63 @@ async function pollKieTask(baseUrl, token, taskId) {
   throw new Error("KIE generation timed out");
 }
 
-async function runKiePrompt({ token, model, prompt, aspectRatio }) {
+async function runKiePrompt({ token, model, prompt, aspectRatio, quality }) {
   const baseUrl = process.env.KIE_API_BASE_URL || "https://api.kie.ai";
   const cleanBase = String(baseUrl).replace(/\/+$/, "");
+  const modelName = String(model || "").trim();
+  const lowerModel = modelName.toLowerCase();
+  const useMarketJobApi = lowerModel.includes("seedream/");
+
+  if (useMarketJobApi) {
+    const response = await fetch(`${cleanBase}/api/v1/jobs/createTask`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: modelName,
+        input: {
+          prompt,
+          aspect_ratio: parseKieAspectRatio(aspectRatio),
+          quality: parseKieQuality(quality)
+        }
+      }),
+      cache: "no-store"
+    });
+    const raw = await response.text();
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
+    const statusCode = Number(data?.code);
+    if (!response.ok || (statusCode !== 0 && statusCode !== 200)) {
+      const detail = data?.msg || data?.message || data?.error || raw || `KIE request failed (${response.status})`;
+      throw new Error(detail);
+    }
+    const taskId = data?.data?.taskId;
+    if (!taskId) throw new Error("KIE did not return taskId");
+    const task = await pollKieMarketTask(baseUrl, token, taskId);
+    const resultPayload = parseResultJsonPayload(task?.resultJson) || task;
+    const imageUrl = extractKieImageUrl(resultPayload);
+    if (!imageUrl) {
+      const payloadKeys =
+        resultPayload && typeof resultPayload === "object"
+          ? Object.keys(resultPayload).slice(0, 12).join(",")
+          : "";
+      throw new Error(
+        `KIE task succeeded but did not return an image URL (taskId=${taskId}, payloadKeys=${payloadKeys}).`
+      );
+    }
+    return {
+      taskId,
+      imageUrl,
+      status: "succeeded"
+    };
+  }
+
   const response = await fetch(`${cleanBase}/api/v1/flux/kontext/generate`, {
     method: "POST",
     headers: {
@@ -369,7 +529,7 @@ async function runKiePrompt({ token, model, prompt, aspectRatio }) {
 
   const taskId = data?.data?.taskId;
   if (!taskId) throw new Error("KIE did not return taskId");
-  const task = await pollKieTask(baseUrl, token, taskId);
+  const task = await pollKieFluxKontextTask(baseUrl, token, taskId);
   const imageUrl = extractKieImageUrl(task?.response || task);
   if (!imageUrl) {
     throw new Error("KIE task succeeded but did not return an image URL.");
@@ -420,9 +580,9 @@ export async function POST(request) {
     };
     const replicateModel = modelByQuality[quality];
     const kieModelByQuality = {
-      draft: process.env.KIE_MODEL_DRAFT || "flux-kontext-pro",
-      standard: process.env.KIE_MODEL_STANDARD || "flux-kontext-pro",
-      high: process.env.KIE_MODEL_HIGH || "flux-kontext-max"
+      draft: process.env.KIE_MODEL_DRAFT || "seedream/4.5-text-to-image",
+      standard: process.env.KIE_MODEL_STANDARD || "seedream/4.5-text-to-image",
+      high: process.env.KIE_MODEL_HIGH || "seedream/4.5-text-to-image"
     };
     const kieModel = kieModelByQuality[quality];
     const primaryProvider = kieToken ? "kie" : replicateToken ? "replicate" : "none";
@@ -472,63 +632,90 @@ export async function POST(request) {
     const items = [];
     const errors = [];
     let attempts = 0;
+    let cursor = 0;
+    const nextPrompt = () => {
+      if (cursor >= prompts.length) return null;
+      const promptItem = prompts[cursor];
+      cursor += 1;
+      return promptItem;
+    };
 
-    for (const promptItem of prompts) {
-      attempts += 1;
-      try {
-        let result = null;
-        let providerUsed = primaryProvider;
-        if (primaryProvider === "kie") {
+    const generatePromptItem = async (promptItem) => {
+      let result = null;
+      let providerUsed = primaryProvider;
+      if (primaryProvider === "kie") {
+        try {
+          result = await runKiePrompt({
+            token: kieToken,
+            model: kieModel,
+            prompt: promptItem.prompt,
+            aspectRatio,
+            quality
+          });
+          providerUsed = "kie";
+        } catch (primaryError) {
+          if (fallbackProvider !== "replicate") throw primaryError;
           try {
-            result = await runKiePrompt({
-              token: kieToken,
-              model: kieModel,
+            result = await runReplicatePrompt({
+              token: replicateToken,
+              model: replicateModel,
               prompt: promptItem.prompt,
               aspectRatio
             });
-            providerUsed = "kie";
-          } catch (primaryError) {
-            if (fallbackProvider !== "replicate") throw primaryError;
-            try {
-              result = await runReplicatePrompt({
-                token: replicateToken,
-                model: replicateModel,
-                prompt: promptItem.prompt,
-                aspectRatio
-              });
-              providerUsed = "replicate";
-            } catch (fallbackError) {
-              const primaryMsg =
-                primaryError instanceof Error ? primaryError.message : "Unknown KIE error";
-              const fallbackMsg =
-                fallbackError instanceof Error ? fallbackError.message : "Unknown Replicate error";
-              throw new Error(
-                `KIE primary failed: ${primaryMsg}; Replicate fallback failed: ${fallbackMsg}`
-              );
-            }
+            providerUsed = "replicate";
+          } catch (fallbackError) {
+            const primaryMsg =
+              primaryError instanceof Error ? primaryError.message : "Unknown KIE error";
+            const fallbackMsg =
+              fallbackError instanceof Error ? fallbackError.message : "Unknown Replicate error";
+            throw new Error(
+              `KIE primary failed: ${primaryMsg}; Replicate fallback failed: ${fallbackMsg}`
+            );
           }
-        } else {
-          result = await runReplicatePrompt({
-            token: replicateToken,
-            model: replicateModel,
-            prompt: promptItem.prompt,
-            aspectRatio
-          });
-          providerUsed = "replicate";
         }
-        items.push({
-          ...promptItem,
-          predictionId: result?.predictionId || result?.taskId || null,
-          provider: providerUsed,
-          imageUrl: result?.imageUrl || ""
+      } else {
+        result = await runReplicatePrompt({
+          token: replicateToken,
+          model: replicateModel,
+          prompt: promptItem.prompt,
+          aspectRatio
         });
-      } catch (error) {
-        errors.push({
-          index: promptItem.index,
-          message: error instanceof Error ? error.message : "Unknown generation error"
-        });
+        providerUsed = "replicate";
       }
-    }
+      return {
+        ...promptItem,
+        predictionId: result?.predictionId || result?.taskId || null,
+        provider: providerUsed,
+        imageUrl: result?.imageUrl || ""
+      };
+    };
+
+    const parallelLimit = clamp(
+      Number(process.env.AI_GENERATION_CONCURRENCY || (primaryProvider === "kie" ? 3 : 4)) || 3,
+      1,
+      6
+    );
+    const workerCount = Math.min(parallelLimit, prompts.length);
+    await Promise.all(
+      Array.from({ length: workerCount }, async () => {
+        while (true) {
+          const promptItem = nextPrompt();
+          if (!promptItem) break;
+          attempts += 1;
+          try {
+            const generated = await generatePromptItem(promptItem);
+            items.push(generated);
+          } catch (error) {
+            errors.push({
+              index: promptItem.index,
+              message: error instanceof Error ? error.message : "Unknown generation error"
+            });
+          }
+        }
+      })
+    );
+    items.sort((a, b) => Number(a.index || 0) - Number(b.index || 0));
+    errors.sort((a, b) => Number(a.index || 0) - Number(b.index || 0));
 
     const nextBudget = {
       date: budget.date,
