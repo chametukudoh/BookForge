@@ -1,0 +1,1594 @@
+openapi: 3.1.0
+info:
+  title: BookForge Studio API
+  version: 1.0.0
+  description: API contract from BookForge PRD v1.3
+  license:
+    name: Proprietary
+    url: https://bookforge.local/license
+servers:
+  - url: https://api.bookforge.local/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /projects:
+    post:
+      summary: Create project
+      operationId: postProjects
+      tags: [Projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}:
+    get:
+      summary: Get project
+      operationId: getProjectsByProjectId
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetailResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Update project
+      operationId: patchProjectsByProjectId
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/clone:
+    post:
+      summary: Clone project
+      operationId: postProjectsByProjectIdClone
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloneProjectRequest'
+      responses:
+        '201':
+          description: Cloned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/archive:
+    post:
+      summary: Archive project
+      operationId: postProjectsByProjectIdArchive
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '202':
+          description: Archive accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/plan:
+    post:
+      summary: Build page plan and queue generation
+      operationId: postProjectsByProjectIdPagesPlan
+      tags: [Pages]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PagePlanRequest'
+      responses:
+        '202':
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}:
+    patch:
+      summary: Patch page metadata
+      operationId: patchProjectsByProjectIdPagesByPageId
+      tags: [Pages]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchPageRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/regenerate:
+    post:
+      summary: Regenerate page
+      operationId: postProjectsByProjectIdPagesByPageIdRegenerate
+      tags: [Pages]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegeneratePageRequest'
+      responses:
+        '202':
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/word-search/generate:
+    post:
+      summary: Generate Word Search
+      operationId: postProjectsByProjectIdPagesByPageIdWordSearchGenerate
+      tags: [WordSearch]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordSearchGenerateRequest'
+      responses:
+        '200':
+          description: Generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordSearchState'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/word-search/cells:
+    patch:
+      summary: Patch Word Search cells
+      operationId: patchProjectsByProjectIdPagesByPageIdWordSearchCells
+      tags: [WordSearch]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordSearchPatchCellsRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordSearchState'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/word-search/words:
+    post:
+      summary: Add Word Search word
+      operationId: postProjectsByProjectIdPagesByPageIdWordSearchWords
+      tags: [WordSearch]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordSearchAddWordRequest'
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordPlacement'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/word-search/words/{wordId}:
+    patch:
+      summary: Update Word Search word
+      operationId: patchProjectsByProjectIdPagesByPageIdWordSearchWordsByWordId
+      tags: [WordSearch]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+        - $ref: '#/components/parameters/WordId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordSearchUpdateWordRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordPlacement'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete Word Search word
+      operationId: deleteProjectsByProjectIdPagesByPageIdWordSearchWordsByWordId
+      tags: [WordSearch]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+        - $ref: '#/components/parameters/WordId'
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/word-search/validate:
+    post:
+      summary: Validate Word Search state
+      operationId: postProjectsByProjectIdPagesByPageIdWordSearchValidate
+      tags: [WordSearch]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      responses:
+        '200':
+          description: QC results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QcResultList'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/maze/generate:
+    post:
+      summary: Generate maze
+      operationId: postProjectsByProjectIdPagesByPageIdMazeGenerate
+      tags: [Maze]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MazeGenerateRequest'
+      responses:
+        '200':
+          description: Generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MazeState'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/maze/walls:
+    patch:
+      summary: Edit maze walls
+      operationId: patchProjectsByProjectIdPagesByPageIdMazeWalls
+      tags: [Maze]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MazePatchWallsRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MazeState'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/maze/terminals:
+    patch:
+      summary: Update maze entrance/exit
+      operationId: patchProjectsByProjectIdPagesByPageIdMazeTerminals
+      tags: [Maze]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MazePatchTerminalsRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MazeState'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/maze/solve:
+    post:
+      summary: Solve maze
+      operationId: postProjectsByProjectIdPagesByPageIdMazeSolve
+      tags: [Maze]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      responses:
+        '200':
+          description: Solved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MazeSolveResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/maze/validate:
+    post:
+      summary: Validate maze
+      operationId: postProjectsByProjectIdPagesByPageIdMazeValidate
+      tags: [Maze]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      responses:
+        '200':
+          description: QC results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QcResultList'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /style-profiles:
+    get:
+      summary: List style profiles
+      operationId: getStyleProfiles
+      tags: [StyleProfiles]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StyleProfile'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create style profile
+      operationId: postStyleProfiles
+      tags: [StyleProfiles]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStyleProfileRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StyleProfile'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /style-profiles/{styleProfileId}:
+    patch:
+      summary: Update style profile
+      operationId: patchStyleProfilesByStyleProfileId
+      tags: [StyleProfiles]
+      parameters:
+        - $ref: '#/components/parameters/StyleProfileId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStyleProfileRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StyleProfile'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/style/apply:
+    post:
+      summary: Apply style profile
+      operationId: postProjectsByProjectIdStyleApply
+      tags: [StyleProfiles]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyStyleRequest'
+      responses:
+        '200':
+          description: Applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/prompts/build:
+    post:
+      summary: Build prompts
+      operationId: postProjectsByProjectIdPromptsBuild
+      tags: [PromptStudio]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Prompt set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptBuildResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/prompts/export:
+    get:
+      summary: Export prompts
+      operationId: getProjectsByProjectIdPromptsExport
+      tags: [PromptStudio]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [txt, md, csv]
+      responses:
+        '200':
+          description: Export resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/assets/presign:
+    post:
+      summary: Presign asset upload
+      operationId: postProjectsByProjectIdAssetsPresign
+      tags: [Assets]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresignAssetRequest'
+      responses:
+        '200':
+          description: Presigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresignAssetResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/assets/{assetId}/commit:
+    post:
+      summary: Commit uploaded asset
+      operationId: postProjectsByProjectIdAssetsByAssetIdCommit
+      tags: [Assets]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AssetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitAssetRequest'
+      responses:
+        '200':
+          description: Committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/pages/{pageId}/attach-asset:
+    post:
+      summary: Attach asset to page
+      operationId: postProjectsByProjectIdPagesByPageIdAttachAsset
+      tags: [Assets]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/PageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachAssetRequest'
+      responses:
+        '200':
+          description: Attached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/line-art/bulk-upload:
+    post:
+      summary: Bulk upload line-art assets
+      operationId: postProjectsByProjectIdLineArtBulkUpload
+      tags: [LineArt]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkLineArtUploadRequest'
+      responses:
+        '202':
+          description: Accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineArtBulkUploadResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/line-art:
+    get:
+      summary: List line-art assets
+      operationId: getProjectsByProjectIdLineArt
+      tags: [LineArt]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LineArtAssetStatus'
+        - name: collection_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: tag
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated line-art list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineArtAssetListResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/line-art/{assetId}/reprocess:
+    post:
+      summary: Reprocess line-art asset
+      operationId: postProjectsByProjectIdLineArtByAssetIdReprocess
+      tags: [LineArt]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AssetId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LineArtReprocessRequest'
+      responses:
+        '202':
+          description: Reprocess job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/dot-to-dot/generate:
+    post:
+      summary: Generate dot-to-dot pages
+      operationId: postProjectsByProjectIdDotToDotGenerate
+      tags: [DotToDot]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DotToDotGenerateRequest'
+      responses:
+        '202':
+          description: Generation job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/dot-to-dot/library/assign:
+    post:
+      summary: Assign library assets to dot-to-dot pages
+      operationId: postProjectsByProjectIdDotToDotLibraryAssign
+      tags: [DotToDot]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DotToDotLibraryAssignRequest'
+      responses:
+        '200':
+          description: Assignments applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/qc/run:
+    post:
+      summary: Run QC
+      operationId: postProjectsByProjectIdQcRun
+      tags: [Quality]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '202':
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/qc:
+    get:
+      summary: List QC results
+      operationId: getProjectsByProjectIdQc
+      tags: [Quality]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: QC results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QcResultList'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/exports:
+    post:
+      summary: Create export
+      operationId: postProjectsByProjectIdExports
+      tags: [Exports]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExportRequest'
+      responses:
+        '202':
+          description: Export queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/exports/{exportId}:
+    get:
+      summary: Get export
+      operationId: getProjectsByProjectIdExportsByExportId
+      tags: [Exports]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: Export resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/jobs/{jobId}:
+    get:
+      summary: Get job
+      operationId: getProjectsByProjectIdJobsByJobId
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Job state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /projects/{projectId}/jobs/{jobId}/cancel:
+    post:
+      summary: Cancel job
+      operationId: postProjectsByProjectIdJobsByJobIdCancel
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '202':
+          description: Cancellation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProjectId:
+      in: path
+      name: projectId
+      required: true
+      schema: { type: string, format: uuid }
+    PageId:
+      in: path
+      name: pageId
+      required: true
+      schema: { type: string, format: uuid }
+    WordId:
+      in: path
+      name: wordId
+      required: true
+      schema: { type: string }
+    StyleProfileId:
+      in: path
+      name: styleProfileId
+      required: true
+      schema: { type: string, format: uuid }
+    AssetId:
+      in: path
+      name: assetId
+      required: true
+      schema: { type: string, format: uuid }
+    ExportId:
+      in: path
+      name: exportId
+      required: true
+      schema: { type: string, format: uuid }
+    JobId:
+      in: path
+      name: jobId
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    MessageResponse:
+      type: object
+      properties:
+        message: { type: string }
+      required: [message]
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+      required: [code, message]
+    Coordinate:
+      type: object
+      properties:
+        row: { type: integer, minimum: 0 }
+        col: { type: integer, minimum: 0 }
+      required: [row, col]
+    Project:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        owner_id: { type: string, format: uuid }
+        title: { type: string }
+        template_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        status: { type: string, enum: [draft, ready, exporting, archived] }
+        style_profile_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        style_mode: { type: string, enum: [GLOBAL, PER_PAGE] }
+        settings_json: { type: object, additionalProperties: true }
+      required: [id, owner_id, title, status, style_mode, settings_json]
+    ProjectDetailResponse:
+      type: object
+      properties:
+        project: { $ref: '#/components/schemas/Project' }
+        page_summary: { type: object, additionalProperties: true }
+        latest_qc: { type: object, additionalProperties: true }
+      required: [project]
+    Page:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        page_number: { type: integer, minimum: 1 }
+        type: { type: string }
+        config_json: { type: object, additionalProperties: true }
+        source_mode:
+          oneOf:
+            - $ref: '#/components/schemas/LineArtSourceMode'
+            - { type: 'null' }
+        source_asset_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        recipe_json: { type: object, additionalProperties: true }
+        qc_state: { type: string, enum: [pending, passed, warning, error] }
+      required: [id, project_id, page_number, type, config_json, qc_state]
+    StyleProfile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        category: { type: string }
+        audience_tags:
+          type: array
+          items: { type: string }
+        rules_json: { type: object, additionalProperties: true }
+        prompt_blocks: { type: object, additionalProperties: true }
+        version: { type: integer, minimum: 1 }
+        is_public: { type: boolean }
+      required: [id, name, category, rules_json, prompt_blocks, version, is_public]
+    Asset:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        storage_key: { type: string }
+        mime_type: { type: string }
+        width:
+          oneOf:
+            - { type: integer }
+            - { type: 'null' }
+        height:
+          oneOf:
+            - { type: integer }
+            - { type: 'null' }
+      required: [id, project_id, storage_key, mime_type]
+    LineArtSourceMode:
+      type: string
+      enum: [theme_ai, single_trace, bulk_library]
+    LineArtAssetStatus:
+      type: string
+      enum: [uploaded, processing, ready, failed, archived]
+    LineArtAsset:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        collection_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        base_asset_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        source_filename: { type: string }
+        mime_type: { type: string }
+        width:
+          oneOf:
+            - { type: integer }
+            - { type: 'null' }
+        height:
+          oneOf:
+            - { type: integer }
+            - { type: 'null' }
+        sha256:
+          oneOf:
+            - { type: string }
+            - { type: 'null' }
+        tags:
+          type: array
+          items: { type: string }
+        status: { $ref: '#/components/schemas/LineArtAssetStatus' }
+        trace_json:
+          oneOf:
+            - { type: object, additionalProperties: true }
+            - { type: 'null' }
+        diagnostics_json: { type: object, additionalProperties: true }
+        metadata_json: { type: object, additionalProperties: true }
+      required:
+        [
+          id,
+          project_id,
+          source_filename,
+          mime_type,
+          tags,
+          status,
+          diagnostics_json,
+          metadata_json
+        ]
+    LineArtAssetListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/LineArtAsset' }
+        next_cursor:
+          oneOf:
+            - { type: string }
+            - { type: 'null' }
+      required: [items]
+    Job:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        type: { type: string, enum: [generate, qc, render, export] }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        payload_json: { type: object, additionalProperties: true }
+        result_json:
+          oneOf:
+            - { type: object, additionalProperties: true }
+            - { type: 'null' }
+        error_json:
+          oneOf:
+            - { type: object, additionalProperties: true }
+            - { type: 'null' }
+      required: [id, project_id, type, status, payload_json]
+    Export:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        variant: { type: string, enum: [INTERIOR, SOLUTIONS, COMBINED, PROMPT_PACK] }
+        status: { type: string, enum: [queued, building, ready, failed] }
+        file_asset_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+      required: [id, project_id, variant, status]
+    QcResult:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        page_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        rule_id: { type: string }
+        severity: { type: string, enum: [info, warning, error] }
+        message: { type: string }
+        details_json: { type: object, additionalProperties: true }
+      required: [id, project_id, rule_id, severity, message, details_json]
+    QcResultList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/QcResult' }
+      required: [items]
+    WordPlacement:
+      type: object
+      properties:
+        id: { type: string }
+        text: { type: string }
+        start: { $ref: '#/components/schemas/Coordinate' }
+        direction: { type: string, enum: [N, S, E, W, NE, NW, SE, SW] }
+        locked: { type: boolean }
+        hidden: { type: boolean }
+      required: [id, text, start, direction]
+    WordSearchState:
+      type: object
+      properties:
+        page_id: { type: string, format: uuid }
+        revision: { type: integer, minimum: 1 }
+        grid_size: { type: integer, minimum: 10, maximum: 24 }
+        locale: { type: string }
+        grid:
+          type: array
+          items:
+            type: array
+            items: { type: string, minLength: 1, maxLength: 1 }
+        words:
+          type: array
+          items: { $ref: '#/components/schemas/WordPlacement' }
+      required: [page_id, revision, grid_size, locale, grid, words]
+    MazeEdgeMutation:
+      type: object
+      properties:
+        from: { $ref: '#/components/schemas/Coordinate' }
+        to: { $ref: '#/components/schemas/Coordinate' }
+        op: { type: string, enum: [add, remove] }
+      required: [from, to, op]
+    MazeState:
+      type: object
+      properties:
+        page_id: { type: string, format: uuid }
+        revision: { type: integer, minimum: 1 }
+        rows: { type: integer, minimum: 8, maximum: 80 }
+        cols: { type: integer, minimum: 8, maximum: 80 }
+        graph: { type: object, additionalProperties: true }
+        entrance: { $ref: '#/components/schemas/Coordinate' }
+        exit: { $ref: '#/components/schemas/Coordinate' }
+        solution_path:
+          type: array
+          items: { $ref: '#/components/schemas/Coordinate' }
+      required: [page_id, revision, rows, cols, graph, entrance, exit]
+    MazeSolveResponse:
+      type: object
+      properties:
+        page_id: { type: string, format: uuid }
+        revision: { type: integer, minimum: 1 }
+        solution_path:
+          type: array
+          items: { $ref: '#/components/schemas/Coordinate' }
+      required: [page_id, revision, solution_path]
+    PromptBuildResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              page_id: { type: string, format: uuid }
+              page_number: { type: integer }
+              prompt: { type: string }
+            required: [page_id, page_number, prompt]
+      required: [items]
+    CreateProjectRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        template_id: { type: string, format: uuid }
+        settings: { type: object, additionalProperties: true }
+        style_profile_id: { type: string, format: uuid }
+        style_mode: { type: string, enum: [GLOBAL, PER_PAGE] }
+      required: [title]
+    UpdateProjectRequest:
+      type: object
+      properties:
+        title: { type: string }
+        settings: { type: object, additionalProperties: true }
+        style_profile_id: { type: string, format: uuid }
+        style_mode: { type: string, enum: [GLOBAL, PER_PAGE] }
+    CloneProjectRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        clone_assets: { type: boolean, default: false }
+      required: [title]
+    PagePlanRequest:
+      type: object
+      properties:
+        page_mix:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              count: { type: integer, minimum: 1 }
+            required: [type, count]
+        generator_settings: { type: object, additionalProperties: true }
+      required: [page_mix]
+    PatchPageRequest:
+      type: object
+      properties:
+        config_json: { type: object, additionalProperties: true }
+        style_profile_override_id:
+          oneOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+    RegeneratePageRequest:
+      type: object
+      properties:
+        reason: { type: string }
+        constraints: { type: object, additionalProperties: true }
+      required: [reason]
+
+    WordSearchGenerateRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        words:
+          type: array
+          items: { type: string, minLength: 2 }
+        grid_size: { type: integer, minimum: 10, maximum: 24 }
+        directions:
+          type: array
+          items: { type: string, enum: [N, S, E, W, NE, NW, SE, SW] }
+        locale: { type: string, default: en-US }
+        seed: { type: integer }
+      required: [words, grid_size]
+    WordSearchPatchCellsRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        cells:
+          type: array
+          items:
+            type: object
+            properties:
+              row: { type: integer, minimum: 0 }
+              col: { type: integer, minimum: 0 }
+              char: { type: string, minLength: 1, maxLength: 1 }
+            required: [row, col, char]
+      required: [revision, cells]
+    WordSearchAddWordRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        text: { type: string, minLength: 2 }
+        start: { $ref: '#/components/schemas/Coordinate' }
+        direction: { type: string, enum: [N, S, E, W, NE, NW, SE, SW] }
+        locked: { type: boolean }
+        hidden: { type: boolean }
+      required: [revision, text, start, direction]
+    WordSearchUpdateWordRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        start: { $ref: '#/components/schemas/Coordinate' }
+        direction: { type: string, enum: [N, S, E, W, NE, NW, SE, SW] }
+        locked: { type: boolean }
+        hidden: { type: boolean }
+      required: [revision]
+
+    MazeGenerateRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        rows: { type: integer, minimum: 8, maximum: 80 }
+        cols: { type: integer, minimum: 8, maximum: 80 }
+        difficulty: { type: string, enum: [easy, medium, hard] }
+        algorithm: { type: string, enum: [recursive_backtracker, prim, kruskal] }
+        seed: { type: integer }
+      required: [rows, cols]
+    MazePatchWallsRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        walls:
+          type: array
+          items: { $ref: '#/components/schemas/MazeEdgeMutation' }
+      required: [revision, walls]
+    MazePatchTerminalsRequest:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        entrance: { $ref: '#/components/schemas/Coordinate' }
+        exit: { $ref: '#/components/schemas/Coordinate' }
+      required: [revision, entrance, exit]
+
+    CreateStyleProfileRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 3 }
+        category: { type: string }
+        audience_tags:
+          type: array
+          items: { type: string }
+        rules_json: { type: object, additionalProperties: true }
+        prompt_blocks: { type: object, additionalProperties: true }
+        is_public: { type: boolean, default: false }
+      required: [name, category, rules_json, prompt_blocks]
+    UpdateStyleProfileRequest:
+      type: object
+      properties:
+        name: { type: string }
+        category: { type: string }
+        audience_tags:
+          type: array
+          items: { type: string }
+        rules_json: { type: object, additionalProperties: true }
+        prompt_blocks: { type: object, additionalProperties: true }
+        is_public: { type: boolean }
+    ApplyStyleRequest:
+      type: object
+      properties:
+        style_profile_id: { type: string, format: uuid }
+        mode: { type: string, enum: [GLOBAL, PER_PAGE] }
+      required: [style_profile_id, mode]
+
+    PresignAssetRequest:
+      type: object
+      properties:
+        filename: { type: string }
+        mime_type: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
+      required: [filename, mime_type, size_bytes]
+    PresignAssetResponse:
+      type: object
+      properties:
+        asset_id: { type: string, format: uuid }
+        upload_url: { type: string, format: uri }
+        headers:
+          type: object
+          additionalProperties: { type: string }
+      required: [asset_id, upload_url]
+    CommitAssetRequest:
+      type: object
+      properties:
+        hash_sha256: { type: string }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        mime_type: { type: string }
+      required: [hash_sha256, mime_type]
+    AttachAssetRequest:
+      type: object
+      properties:
+        asset_id: { type: string, format: uuid }
+      required: [asset_id]
+    BulkLineArtUploadFile:
+      type: object
+      properties:
+        filename: { type: string }
+        mime_type: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
+        collection_id: { type: string, format: uuid }
+        tags:
+          type: array
+          items: { type: string }
+      required: [filename, mime_type, size_bytes]
+    BulkLineArtUploadRequest:
+      type: object
+      properties:
+        files:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/BulkLineArtUploadFile' }
+        process_immediately: { type: boolean, default: true }
+      required: [files]
+    LineArtBulkUploadRejectedItem:
+      type: object
+      properties:
+        index: { type: integer, minimum: 0 }
+        filename: { type: string }
+        reason: { type: string }
+      required: [index, filename, reason]
+    LineArtBulkUploadResponse:
+      type: object
+      properties:
+        accepted: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/LineArtAsset' }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/LineArtBulkUploadRejectedItem' }
+        job:
+          oneOf:
+            - { $ref: '#/components/schemas/Job' }
+            - { type: 'null' }
+      required: [accepted, rejected, items, errors]
+    LineArtReprocessRequest:
+      type: object
+      properties:
+        force: { type: boolean, default: false }
+        stage: { type: string, enum: [ingest, vectorize, simplify, qa] }
+    DotToDotPinnedAsset:
+      type: object
+      properties:
+        page_id: { type: string, format: uuid }
+        page_number: { type: integer, minimum: 1 }
+        source_asset_id: { type: string, format: uuid }
+      required: [source_asset_id]
+    DotToDotGenerateRequest:
+      type: object
+      properties:
+        source_mode: { $ref: '#/components/schemas/LineArtSourceMode' }
+        page_count: { type: integer, minimum: 1, maximum: 120 }
+        difficulty: { type: string }
+        trim_id: { type: string }
+        theme: { type: string }
+        book_title: { type: string }
+        collection_ids:
+          type: array
+          items: { type: string, format: uuid }
+        use_only_library_assets: { type: boolean, default: false }
+        allow_ai_fallback: { type: boolean, default: true }
+        pinned_assets:
+          type: array
+          items: { $ref: '#/components/schemas/DotToDotPinnedAsset' }
+      required: [source_mode, page_count, difficulty, trim_id]
+    DotToDotLibraryAssignment:
+      type: object
+      properties:
+        page_id: { type: string, format: uuid }
+        page_number: { type: integer, minimum: 1 }
+        source_asset_id: { type: string, format: uuid }
+      required: [source_asset_id]
+    DotToDotLibraryAssignRequest:
+      type: object
+      properties:
+        strict: { type: boolean, default: false }
+        assignments:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/DotToDotLibraryAssignment' }
+      required: [assignments]
+
+    CreateExportRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          enum: [INTERIOR, SOLUTIONS, COMBINED, PROMPT_PACK]
+      required: [variant]
